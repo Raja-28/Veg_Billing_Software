@@ -9,6 +9,23 @@ import 'tables.dart';
 
 part 'app_db.g.dart';
 
+// Data class to hold the result of a join for the dashboard
+class LedgerWithFarmer {
+  final LedgerEntry ledgerEntry;
+  final Farmer farmer;
+
+  LedgerWithFarmer({required this.ledgerEntry, required this.farmer});
+}
+
+// ✅ NEW: Data class to hold all info for a single invoice/bill
+class FullInvoice {
+  final Bill bill;
+  final Farmer farmer;
+  final List<BillItem> items;
+
+  FullInvoice({required this.bill, required this.farmer, required this.items});
+}
+
 /// Central database for the VegBill app.
 /// Includes all tables and helper queries.
 @DriftDatabase(
@@ -26,8 +43,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<Farmer>> get allFarmers => select(farmers).get();
 
-  Future<int> addFarmer(FarmersCompanion entry) =>
-      into(farmers).insert(entry);
+  Future<int> addFarmer(FarmersCompanion entry) => into(farmers).insert(entry);
 
   Future<int> updateFarmerBalance(int farmerId, int newBalance) {
     return (update(farmers)..where((t) => t.id.equals(farmerId))).write(
@@ -57,6 +73,26 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> addBillItem(BillItemsCompanion item) =>
       into(billItems).insert(item);
+
+  // ✅ NEW: Query to get all data for a single invoice
+  Future<FullInvoice?> getFullInvoiceById(int billId) async {
+    // 1. Get the bill itself
+    final bill = await (select(bills)..where((b) => b.id.equals(billId)))
+        .getSingleOrNull();
+
+    if (bill == null) return null;
+
+    // 2. Get the farmer associated with the bill
+    final farmer = await getFarmerById(bill.farmerId);
+    if (farmer == null) return null; // Should not happen if data is valid
+
+    // 3. Get all line items for that bill
+    final items = await (select(billItems)
+      ..where((i) => i.billId.equals(billId)))
+        .get();
+
+    return FullInvoice(bill: bill, farmer: farmer, items: items);
+  }
 
   // ===========================
   // LEDGER ENTRIES
@@ -92,14 +128,36 @@ class AppDatabase extends _$AppDatabase {
           type: type,
           amount: amount,
           newBalance: newBalance,
-          createdAt: Value(DateTime.now()), // ✅ FIXED
+          createdAt: Value(DateTime.now()),
           notes: Value(notes),
         ),
       );
 
-
       // Update farmer balance
       await updateFarmerBalance(farmerId, newBalance);
+    });
+  }
+
+  // ===========================
+  // DASHBOARD QUERIES
+  // ===========================
+
+  /// Watches the [limit] most recent ledger entries, joining with the
+  /// farmer's name for the dashboard.
+  Stream<List<LedgerWithFarmer>> watchRecentLedgerEntries({int limit = 5}) {
+    final query = select(ledgerEntries).join([
+      innerJoin(farmers, farmers.id.equalsExp(ledgerEntries.farmerId)),
+    ])
+      ..orderBy([OrderingTerm.desc(ledgerEntries.createdAt)])
+      ..limit(limit);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return LedgerWithFarmer(
+          ledgerEntry: row.readTable(ledgerEntries),
+          farmer: row.readTable(farmers),
+        );
+      }).toList();
     });
   }
 
@@ -121,3 +179,4 @@ LazyDatabase _openConnection() {
     return NativeDatabase(file);
   });
 }
+
