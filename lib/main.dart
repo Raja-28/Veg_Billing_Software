@@ -2,9 +2,14 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'core/navigation/router.dart';
+import 'core/services/pin_auth_service.dart';
+import 'core/services/pin_auth_provider.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔐 Initialize PIN authentication service
+  final pinAuthService = await PinAuthService.initialize();
 
   // 🪟 Configure desktop window
   doWhenWindowReady(() {
@@ -17,17 +22,28 @@ void main() {
     win.show();
   });
 
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        // Override the PIN auth service provider with initialized instance
+        pinAuthServiceProvider.overrideWithValue(pinAuthService),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 /// ==============================
 /// 🟢 Root Application
 /// ==============================
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Create router with ref for PIN authentication
+    final router = createRouter(ref);
+    
     return FluentApp.router(
       title: 'VegBill',
       debugShowCheckedModeBanner: false,

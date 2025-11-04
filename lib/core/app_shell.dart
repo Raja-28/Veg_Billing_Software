@@ -1,17 +1,19 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:go_router/go_router.dart';
+import 'services/pin_auth_provider.dart';
 
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/dashboard')) return 0;
@@ -107,6 +109,26 @@ class _AppShellState extends State<AppShell> {
             icon: const Icon(FluentIcons.report_document),
             title: const Text('Reports'),
             body: widget.child,
+          ),
+        ],
+        footerItems: [
+          PaneItem(
+            icon: const Icon(FluentIcons.permissions),
+            title: const Text('PIN Settings'),
+            body: widget.child,
+            onTap: () {
+              context.go('/pin-settings');
+            },
+          ),
+          PaneItem(
+            icon: const Icon(FluentIcons.lock),
+            title: const Text('Lock App'),
+            body: widget.child,
+            onTap: () {
+              // Lock the app
+              ref.read(authStateProvider.notifier).lock();
+              context.go('/pin-lock');
+            },
           ),
         ],
       ),
