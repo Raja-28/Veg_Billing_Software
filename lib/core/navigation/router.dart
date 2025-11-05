@@ -11,6 +11,8 @@ import 'package:vegbill/features/reports/bills_screen.dart';
 import 'package:vegbill/features/auth/pin_setup_screen.dart';
 import 'package:vegbill/features/auth/pin_lock_screen.dart';
 import 'package:vegbill/features/auth/pin_settings_screen.dart';
+import 'package:vegbill/features/settings/settings_screen.dart';
+import 'package:vegbill/features/analytics/analytics_screen.dart';
 import 'package:vegbill/core/app_shell.dart';
 import 'package:vegbill/core/services/pin_auth_provider.dart';
 
@@ -127,6 +129,16 @@ GoRouter createRouter(WidgetRef ref) {
           path: '/pin-settings',
           name: 'pinSettings',
           builder: (context, state) => const PinSettingsScreen(),
+        ),
+        GoRoute(
+          path: '/settings',
+          name: 'settings',
+          builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/analytics',
+          name: 'analytics',
+          builder: (context, state) => const AnalyticsScreen(),
         ),
       ],
       ),

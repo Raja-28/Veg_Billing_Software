@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/pin_auth_provider.dart';
@@ -14,7 +15,7 @@ class PinSettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<PinSettingsScreen> createState() => _PinSettingsScreenState();
 }
 
-class _PinSettingsScreenState extends ConsumerState<PinSettingsScreen> {
+class _PinSettingsScreenState extends ConsumerState<PinSettingsScreen> with SingleTickerProviderStateMixin {
   final List<String> _oldPin = [];
   final List<String> _newPin = [];
   final List<String> _confirmPin = [];
@@ -22,6 +23,31 @@ class _PinSettingsScreenState extends ConsumerState<PinSettingsScreen> {
   int _step = 0; // 0: old PIN, 1: new PIN, 2: confirm new PIN
   String _errorMessage = '';
   String _successMessage = '';
+  final FocusNode _focusNode = FocusNode();
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _shakeController.dispose();
+    super.dispose();
+  }
 
   void _onNumberPressed(String number) {
     setState(() {
@@ -192,20 +218,49 @@ class _PinSettingsScreenState extends ConsumerState<PinSettingsScreen> {
     final typography = FluentTheme.of(context).typography;
     final currentPin = _getCurrentPin();
 
-    return ScaffoldPage(
-      header: PageHeader(
-        title: const Text('Change PIN'),
-        commandBar: CommandBar(
-          primaryItems: [
-            CommandBarButton(
-              icon: const Icon(FluentIcons.back),
-              label: const Text('Back'),
-              onPressed: () => context.pop(),
-            ),
-          ],
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey.keyLabel.length == 1) {
+            final char = event.logicalKey.keyLabel;
+            if (RegExp(r'^[0-9]$').hasMatch(char)) {
+              _onNumberPressed(char);
+            }
+          } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
+            _onBackspace();
+          } else if (event.logicalKey == LogicalKeyboardKey.enter && currentPin.length == 4) {
+            if (_step == 0) _verifyOldPin();
+            else if (_step == 2) _changePin();
+          }
+        }
+      },
+      child: ScaffoldPage(
+        header: PageHeader(
+          title: const Text('Change PIN'),
+          commandBar: CommandBar(
+            primaryItems: [
+              CommandBarButton(
+                icon: const Icon(FluentIcons.back),
+                label: const Text('Back'),
+                onPressed: () => context.pop(),
+              ),
+            ],
+          ),
         ),
-      ),
-      content: Center(
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.blue.withOpacity(0.05),
+                Colors.green.withOpacity(0.05),
+              ],
+            ),
+          ),
+          child: Center(
         child: SingleChildScrollView(
           child: Container(
             constraints: const BoxConstraints(maxWidth: 400),
@@ -328,6 +383,8 @@ class _PinSettingsScreenState extends ConsumerState<PinSettingsScreen> {
                 ),
               ],
             ),
+          ),
+        ),
           ),
         ),
       ),

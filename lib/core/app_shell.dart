@@ -21,6 +21,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith('/stock')) return 2;
     if (location.startsWith('/farmers')) return 3;
     if (location.startsWith('/reports')) return 4;
+    if (location.startsWith('/analytics')) return 5;
     return 0;
   }
 
@@ -78,6 +79,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                 case 4:
                   context.go('/reports');
                   break;
+                case 5:
+                  context.go('/analytics');
+                  break;
                 default:
                   context.go('/dashboard');
               }
@@ -110,24 +114,38 @@ class _AppShellState extends ConsumerState<AppShell> {
             title: const Text('Reports'),
             body: widget.child,
           ),
+          PaneItem(
+            icon: const Icon(FluentIcons.bar_chart4),
+            title: const Text('Analytics'),
+            body: widget.child,
+          ),
         ],
         footerItems: [
-          PaneItem(
-            icon: const Icon(FluentIcons.permissions),
-            title: const Text('PIN Settings'),
-            body: widget.child,
+          PaneItemAction(
+            icon: const Icon(FluentIcons.settings),
+            title: const Text('Settings'),
             onTap: () {
-              context.go('/pin-settings');
+              if (mounted) {
+                SchedulerBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    context.go('/settings');
+                  }
+                });
+              }
             },
           ),
-          PaneItem(
+          PaneItemAction(
             icon: const Icon(FluentIcons.lock),
             title: const Text('Lock App'),
-            body: widget.child,
             onTap: () {
-              // Lock the app
-              ref.read(authStateProvider.notifier).lock();
-              context.go('/pin-lock');
+              if (mounted) {
+                ref.read(authStateProvider.notifier).lock();
+                SchedulerBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    context.go('/pin-lock');
+                  }
+                });
+              }
             },
           ),
         ],

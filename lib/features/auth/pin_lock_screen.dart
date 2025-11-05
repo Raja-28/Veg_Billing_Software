@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/pin_auth_provider.dart';
@@ -15,23 +16,38 @@ class PinLockScreen extends ConsumerStatefulWidget {
   ConsumerState<PinLockScreen> createState() => _PinLockScreenState();
 }
 
-class _PinLockScreenState extends ConsumerState<PinLockScreen> {
+class _PinLockScreenState extends ConsumerState<PinLockScreen> with SingleTickerProviderStateMixin {
   final List<String> _pin = [];
   String _errorMessage = '';
   int _remainingAttempts = 5;
   bool _isLocked = false;
   int _lockoutSeconds = 0;
   Timer? _lockoutTimer;
+  final FocusNode _focusNode = FocusNode();
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
+    );
     _checkLockoutStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
     _lockoutTimer?.cancel();
+    _focusNode.dispose();
+    _shakeController.dispose();
     super.dispose();
   }
 
@@ -75,7 +91,9 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
       if (_pin.length < 4) {
         _pin.add(number);
         if (_pin.length == 4) {
-          _verifyPin();
+          Future.delayed(const Duration(milliseconds: 200), () {
+            _verifyPin();
+          });
         }
       }
     });
@@ -120,6 +138,7 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
               : 'Account locked. Please wait.';
         }
       });
+      _shakeController.forward(from: 0);
     }
   }
 
@@ -133,8 +152,36 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
   Widget build(BuildContext context) {
     final typography = FluentTheme.of(context).typography;
 
-    return ScaffoldPage(
-      content: Center(
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent && !_isLocked) {
+          if (event.logicalKey.keyLabel.length == 1) {
+            final char = event.logicalKey.keyLabel;
+            if (RegExp(r'^[0-9]$').hasMatch(char)) {
+              _onNumberPressed(char);
+            }
+          } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
+            _onBackspace();
+          } else if (event.logicalKey == LogicalKeyboardKey.enter && _pin.length == 4) {
+            _verifyPin();
+          }
+        }
+      },
+      child: ScaffoldPage(
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.green.withOpacity(0.05),
+                Colors.blue.withOpacity(0.05),
+              ],
+            ),
+          ),
+          child: Center(
         child: SingleChildScrollView(
           child: Container(
             constraints: const BoxConstraints(maxWidth: 400),
@@ -170,26 +217,44 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
 
               // PIN Dots
               if (!_isLocked)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    4,
-                    (index) => Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: index < _pin.length
-                            ? Colors.green
-                            : Colors.grey[60],
-                        border: Border.all(
-                          color: Colors.grey[100],
-                          width: 2,
+                AnimatedBuilder(
+                  animation: _shakeAnimation,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(_shakeAnimation.value * ((_pin.length % 2 == 0) ? 1 : -1), 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          4,
+                          (index) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: index < _pin.length
+                                  ? Colors.green
+                                  : Colors.grey[60],
+                              border: Border.all(
+                                color: index < _pin.length ? Colors.green : Colors.grey[100],
+                                width: 2,
+                              ),
+                              boxShadow: index < _pin.length
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.green.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        spreadRadius: 2,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               const SizedBox(height: 24),
 
@@ -269,6 +334,8 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
             ),
           ),
         ),
+          ),
+        ),
       ),
     );
   }
@@ -327,11 +394,19 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
       child: Button(
         onPressed: () => _onNumberPressed(number),
         style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.all(Colors.grey[20]),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) {
+              return Colors.green.withOpacity(0.2);
+            }
+            if (states.contains(WidgetState.hovered)) {
+              return Colors.green.withOpacity(0.1);
+            }
+            return Colors.grey[20];
+          }),
         ),
         child: Text(
           number,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -345,7 +420,15 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
       child: Button(
         onPressed: _onBackspace,
         style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.all(Colors.grey[20]),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) {
+              return Colors.red.withOpacity(0.2);
+            }
+            if (states.contains(WidgetState.hovered)) {
+              return Colors.red.withOpacity(0.1);
+            }
+            return Colors.grey[20];
+          }),
         ),
         child: const Icon(FluentIcons.back, size: 20),
       ),

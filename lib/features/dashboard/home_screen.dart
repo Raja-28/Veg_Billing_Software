@@ -166,24 +166,49 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              (color ?? Colors.blue).withOpacity(0.1),
+              (color ?? Colors.blue).withOpacity(0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            Icon(icon, size: 24, color: color ?? Colors.grey[100]),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: FluentTheme.of(context).typography.caption,
-                ),
-                Text(
-                  value,
-                  style: FluentTheme.of(context).typography.bodyLarge,
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (color ?? Colors.blue).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 28, color: color ?? Colors.grey[100]),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: FluentTheme.of(context).typography.caption?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: FluentTheme.of(context).typography.title?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

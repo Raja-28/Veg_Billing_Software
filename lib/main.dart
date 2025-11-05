@@ -4,6 +4,7 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'core/navigation/router.dart';
 import 'core/services/pin_auth_service.dart';
 import 'core/services/pin_auth_provider.dart';
+import 'core/services/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,21 +44,14 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Create router with ref for PIN authentication
     final router = createRouter(ref);
+    final themeMode = ref.watch(themeModeProvider);
     
     return FluentApp.router(
       title: 'VegBill',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: FluentThemeData(
-        brightness: Brightness.light,
-        accentColor: Colors.green,
-        visualDensity: VisualDensity.standard,
-      ),
-      darkTheme: FluentThemeData(
-        brightness: Brightness.dark,
-        accentColor: Colors.green,
-        visualDensity: VisualDensity.standard,
-      ),
+      themeMode: themeMode,
+      theme: getLightTheme(),
+      darkTheme: getDarkTheme(),
       routerConfig: router,
     );
   }
